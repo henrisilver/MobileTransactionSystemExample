@@ -1,15 +1,18 @@
 from dataModel import DataModel
 import cPickle as pickle
 import SocketServer
+from random import randint
+import threading
+import time
 
 data = DataModel(0,10)
 
-class MyTCPHandler(SocketServer.BaseRequestHandler):
-
+class MyRequestHandlerWithStreamRequestHandler(SocketServer.StreamRequestHandler):
+ 
     def handle(self):
-        
+        time.sleep(randint(0,10))
         self.received = pickle.loads(self.request.recv(1024).strip())
-        print "{} sent id = {}, data = {}".format(self.client_address[0], self.received.ident, self.received.data)
+        print "{}:{} sent id = {}, data = {}".format(self.client_address[0], self.client_address[1], self.received.ident, self.received.data)
         
         if data.ident > self.received.ident:
             print "The client has outdated data. Sending the following updated data: "
@@ -18,16 +21,14 @@ class MyTCPHandler(SocketServer.BaseRequestHandler):
         else:
             print "Updating content."
             data.updateData(self.received.data)
-            self.request.sendall("Success")
-
+            self.request.sendall("Success") 
+ 
 if __name__ == "__main__":
-    HOST, PORT = "localhost", 9999
-
-    # Create the server, binding to localhost on port 9999
-    server = SocketServer.TCPServer((HOST, PORT), MyTCPHandler)
-
     print "Initializing server..."
-
-    # Activate the server; this will keep running until you
-    # interrupt the program with Ctrl-C
-    server.serve_forever()
+    tcp_server = SocketServer.ThreadingTCPServer(("localhost", 9999), RequestHandlerClass=MyRequestHandlerWithStreamRequestHandler, bind_and_activate=False)
+     
+    tcp_server.allow_reuse_address = True
+    tcp_server.server_bind()
+    tcp_server.server_activate()
+     
+    tcp_server.serve_forever()
